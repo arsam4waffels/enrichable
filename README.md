@@ -39,6 +39,9 @@ src/main/java/com/enrichable/
 ├── model/
 │   └── EnrichInformation.java      ← Model for a single error entry
 │
+├── registry/
+│   └── ErrorRegistry.java          ← Generates and stores unique error codes
+│
 └── validation/
     └── EnrichValidator.java        ← Validates and normalizes input values
 ```
@@ -65,6 +68,8 @@ src/main/java/com/enrichable/
 * JUnit 5 tests
 * Annotation-based exception creation
 * Thread-safe exception building
+* Unique error code generation per exception session
+* Error code registry with lookup support
 
 ---
 
@@ -324,13 +329,15 @@ exception.writeLog();
 
 `LogConfig` currently provides the following options:
 
-| Option             | What it does                            | Default          |
-| ------------------ | --------------------------------------- | ---------------- |
-| `showTimestamp`    | Shows timestamps in the log report      | `true`           |
-| `showErrorLevel`   | Shows error levels                      | `true`           |
-| `showMetadata`     | Shows metadata                          | `true`           |
-| `filePath`         | Changes the log file path               | `enrichable.log` |
-| `clearBeforeWrite` | Clears the existing file before writing | `false`          |
+| Option             | What it does                            | Default                   |
+|--------------------|-----------------------------------------|---------------------------|
+| `showTimestamp`    | Shows timestamps in the log report      | `true`                    |
+| `showErrorLevel`   | Shows error levels                      | `true`                    |
+| `showMetadata`     | Shows metadata                          | `true`                    |
+| `filePath`         | Changes the log file path               | `enrichable.log`          |
+| `clearBeforeWrite` | Clears the existing file before writing | `false`                   |
+| `generateCode`     | Generate a unique code for each session | `false`                   |
+| `clearBeforeWrite` | Change the registery file path          | `enrichable-registry.log` |
 
 Console and logging configuration are independent.
 
@@ -349,6 +356,106 @@ exception.setLogConfig(
 ```
 
 This hides metadata from console output while keeping it in the log file.
+
+---
+
+## Error Code Registry
+
+Sometimes you need more than a log file.
+
+When `generateCode` is enabled, each call to `writeLog()` generates a unique
+6-character code for that exception session and stores the full report in a
+separate registry file.
+
+```java
+exception.setLogConfig(
+        new LogConfig()
+                .generateCode(true)
+);
+
+String code = exception.writeLog();
+System.out.println("Error code: " + code); // af45cb
+```
+
+The code is derived from the exception content and timestamp using SHA-256,
+so each run produces a unique code even when the errors are identical.
+
+---
+
+### Registry File
+
+By default, the registry is written to:
+
+```text
+enrichable-registry.log
+```
+
+You can change this with `registryPath()`:
+
+```java
+exception.setLogConfig(
+        new LogConfig()
+                .generateCode(true)
+                .registryPath("logs/registry.log")
+);
+```
+
+---
+
+### Registry File Structure
+
+Each entry in the registry starts with a `[CODE: xxxxxx]` marker followed
+by the full exception report:
+
+```text
+[CODE: af45cb]
+════════════════════════════════════════════════════
+  ENRICHABLE EXCEPTION REPORT
+  Total Errors : 3
+  Thrown At    : 2026-09-06 14:23:01
+════════════════════════════════════════════════════
+
+  [ERROR-1] [CRITICAL] [DATABASE:DB-001]
+  Connection failed
+    └─ Time : 2026-09-06 14:23:01
+
+[CODE: 3d9f12]
+════════════════════════════════════════════════════
+...
+```
+
+---
+
+### Lookup
+
+You can retrieve any previously logged report by its code:
+
+```java
+LogConfig config = new LogConfig()
+        .generateCode(true);
+
+ErrorRegistry.getInstance()
+        .lookup("af45cb", config)
+        .ifPresent(System.out::println);
+```
+
+`lookup()` returns an `Optional<String>` — empty if the code does not exist
+or the registry file cannot be read.
+
+---
+
+### How Codes Are Generated
+
+Each code is the first 6 characters of a SHA-256 hash computed from:
+
+* The content of all error entries (context, code, message, level)
+* The exception timestamp
+
+The timestamp is included so that two runs with identical errors still produce
+different codes. 6 hex characters yield ~16 million possible values, which is
+sufficient for a local error registry.
+
+This is a readability feature, not a security guarantee.
 
 ---
 
@@ -638,6 +745,10 @@ The current test suite covers:
 * Concurrent metadata writing
 * Simultaneous read and write operations
 * Concurrent file logging
+* Error code generation
+* Registry file writing
+* Registry lookup by code
+* Registry path configuration
 
 ---
 
@@ -725,7 +836,7 @@ Older construction APIs may remain available for compatibility while the library
 Java already provides `Throwable.addSuppressed()` for attaching additional exceptions to a throwable. That's useful, but it solves a different problem.
 
 | Feature                                 | `Throwable.addSuppressed()`      | `EnrichableException`            |
-| --------------------------------------- | -------------------------------- | -------------------------------- |
+|-----------------------------------------| -------------------------------- | -------------------------------- |
 | Attach another `Throwable`              | Yes                              | Yes, through the exception cause |
 | Add structured error information        | No                               | Yes                              |
 | Error context                           | No                               | Yes                              |
@@ -738,6 +849,8 @@ Java already provides `Throwable.addSuppressed()` for attaching additional excep
 | Formatted error report                  | No                               | Yes                              |
 | Designed for structured error reporting | No                               | Yes                              |
 | Annotation-based exception creation     | No                               | Yes                              |
+| Unique error code per session           | No                               | Yes                              |
+| Error code registry with lookup         | No                               | Yes                              |
 
 `addSuppressed()` is mainly useful when one operation encounters additional exceptions that should not replace the original exception.
 

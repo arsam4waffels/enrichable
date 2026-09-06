@@ -106,8 +106,8 @@ public class EnrichableException extends RuntimeException {
         this.logConfig.onlyLevel(level);
         return this;
     }
-    public void writeLog() {
-        FileEnrichLogger.getInstance().write(
+    public String writeLog() {
+        return FileEnrichLogger.getInstance().write(
                 informationList,
                 thrownAt,
                 logConfig);
