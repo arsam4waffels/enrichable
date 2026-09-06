@@ -2,6 +2,7 @@ package com.enrichable.logging;
 
 import com.enrichable.config.LogConfig;
 import com.enrichable.model.EnrichInformation;
+import com.enrichable.registry.ErrorRegistry;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +39,7 @@ public class FileEnrichLogger {
      * @param thrownAt timestamp representing when the exception was thrown
      * @param config configuration controlling filtering, formatting, and file output
      */
-    public void write(
+    public String write(
             List<EnrichInformation> informationList,
             String thrownAt,
             LogConfig config) {
@@ -52,7 +53,18 @@ public class FileEnrichLogger {
             String report = buildReport(filteredInformation, thrownAt, config);
 
             writeToFile(report, config);
+
+            if (config.generateCode()) {
+                return ErrorRegistry.getInstance().register(
+                        filteredInformation,
+                        thrownAt,
+                        report,
+                        config
+                );
+            }
         }
+
+        return null;
     }
 
     /**
