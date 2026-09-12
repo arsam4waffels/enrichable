@@ -63,8 +63,10 @@ public class DefaultEnrichFormatter implements EnrichFormatter {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("[").append(list.size()).append("-ERRORS]");
         for (EnrichInformation info : list) {
-            stringBuilder.append("[").append(info.getContext())
-                    .append(":").append(info.getCode()).append("]");
+            stringBuilder.append("[").append(info.getContext());
+            if (info.getCode() != null)
+                stringBuilder.append(":").append(info.getCode());
+            stringBuilder.append("]");
         }
         stringBuilder.append("\n");
         for (int i = 0; i < list.size(); i++) {
