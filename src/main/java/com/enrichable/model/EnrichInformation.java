@@ -1,10 +1,12 @@
 package com.enrichable.model;
 
 import com.enrichable.config.ErrorLevel;
+import com.enrichable.validation.EnrichValidator;
+
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Represents a single enriched error entry within an {@link com.enrichable.EnrichableException}.
  *
@@ -38,6 +40,7 @@ public class EnrichInformation {
     private final LocalDateTime dateTime;
     private final ErrorLevel errorLevel;
     private final Map<String, String> metadata = new ConcurrentHashMap<>();
+
     /**
      * <h5>Constructs a new {@code EnrichInformation} entry.</h5>
      *
@@ -53,15 +56,23 @@ public class EnrichInformation {
      * @param errorLevel the severity level of this entry
      */
     public EnrichInformation(String context,
-                                String code,
-                                String message,
-                                ErrorLevel errorLevel) {
+                             String code,
+                             String message,
+                             ErrorLevel errorLevel) {
+        EnrichValidator.requireNonBlank(context, "context");
+        if (code != null) {
+            EnrichValidator.requireNonBlank(code, "code");
+        }
+        EnrichValidator.requireNonBlank(message, "message");
+        EnrichValidator.requireNonNull(errorLevel);
+
         this.context = context;
         this.code = code;
         this.message = message;
         this.errorLevel = errorLevel;
         this.dateTime = LocalDateTime.now();
     }
+
     /**
      * <h5>Attaches a key-value pair to this error entry.</h5>
      *
@@ -69,10 +80,9 @@ public class EnrichInformation {
      * neatly into the standard fields — for example, a user ID, a query
      * string, or a retry count.</p>
      *
-     * <p>Keys and values should be pre-normalized before being passed here.
-     * Use {@link com.enrichable.validation.EnrichValidator#normalizeMetadataKey}
-     * and {@link com.enrichable.validation.EnrichValidator#normalizeMetadataValue}
-     * to handle blank inputs.</p>
+     * <p>Keys and values are normalized before being stored. Blank keys and
+     * values are represented as {@code "BLANK"}; {@code null} values are
+     * rejected.</p>
      *
      * <p>This method is thread-safe.</p>
      *
@@ -80,8 +90,11 @@ public class EnrichInformation {
      * @param value the metadata value
      */
     public void addMetadata(String key, String value) {
-        metadata.put(key, value);
+        String normalizedKey = EnrichValidator.normalizeMetadataKey(key);
+        String normalizedValue = EnrichValidator.normalizeMetadataValue(value);
+        metadata.put(normalizedKey, normalizedValue);
     }
+
     /**
      * <b>Returns the source or component where the error occurred.</b>
      *
@@ -90,6 +103,7 @@ public class EnrichInformation {
     public String getContext() {
         return context;
     }
+
     /**
      * <b>Returns the optional short identifier for this error.</b>
      *
@@ -98,6 +112,7 @@ public class EnrichInformation {
     public String getCode() {
         return code;
     }
+
     /**
      * <b>Returns the human-readable description of this error.</b>
      *
@@ -106,6 +121,7 @@ public class EnrichInformation {
     public String getMessage() {
         return message;
     }
+
     /**
      * <b>Returns the timestamp of when this entry was created.</b>
      *
@@ -118,6 +134,7 @@ public class EnrichInformation {
     public LocalDateTime getDateTime() {
         return dateTime;
     }
+
     /**
      * <b>Returns the severity level of this error entry.</b>
      *
@@ -126,16 +143,17 @@ public class EnrichInformation {
     public ErrorLevel getErrorLevel() {
         return errorLevel;
     }
+
     /**
-     * <b>Returns an unmodifiable view of the metadata attached to this entry.</b>
+     * <b>Returns an immutable snapshot of the metadata attached to this entry.</b>
      *
-     * <p>The returned map reflects the current state of the metadata at the
-     * time of the call. To add new entries, use {@link #addMetadata}.</p>
+     * <p>The returned map represents the state of the metadata at the time
+     * of the call. To add new entries, use {@link #addMetadata}.</p>
      *
-     * @return an unmodifiable map of metadata key-value pairs;
+     * @return an immutable snapshot of metadata key-value pairs;
      *         empty if no metadata has been added
      */
     public Map<String, String> getMetadata() {
-        return Collections.unmodifiableMap(metadata);
+        return Map.copyOf(metadata);
     }
 }
