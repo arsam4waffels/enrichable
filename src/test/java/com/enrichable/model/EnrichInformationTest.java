@@ -84,6 +84,152 @@ class EnrichInformationTest {
         assertNull(information.getCode());
     }
 
+    // ==================== Construction Validation ====================
+
+    /**
+     * Should reject a null context.
+     */
+    @Test
+    void shouldRejectNullContext() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        null,
+                        "DB-001",
+                        "Connection failed",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject a blank context.
+     */
+    @Test
+    void shouldRejectBlankContext() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "   ",
+                        "DB-001",
+                        "Connection failed",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject an empty context.
+     */
+    @Test
+    void shouldRejectEmptyContext() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "",
+                        "DB-001",
+                        "Connection failed",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject a null message.
+     */
+    @Test
+    void shouldRejectNullMessage() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "DB-001",
+                        null,
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject a blank message.
+     */
+    @Test
+    void shouldRejectBlankMessage() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "DB-001",
+                        "   ",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject an empty message.
+     */
+    @Test
+    void shouldRejectEmptyMessage() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "DB-001",
+                        "",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject a null error level.
+     */
+    @Test
+    void shouldRejectNullErrorLevel() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "DB-001",
+                        "Connection failed",
+                        null
+                )
+        );
+    }
+
+    /**
+     * Should reject an empty code when a code is explicitly provided.
+     */
+    @Test
+    void shouldRejectEmptyCode() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "",
+                        "Connection failed",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
+    /**
+     * Should reject a blank code when a code is explicitly provided.
+     */
+    @Test
+    void shouldRejectBlankCode() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EnrichInformation(
+                        "Database",
+                        "   ",
+                        "Connection failed",
+                        ErrorLevel.ERROR
+                )
+        );
+    }
+
     // ==================== Metadata ====================
 
     /**
@@ -148,5 +294,78 @@ class EnrichInformationTest {
         assertEquals("localhost", information.getMetadata().get("host"));
         assertEquals("5432", information.getMetadata().get("port"));
         assertEquals("users", information.getMetadata().get("database"));
+    }
+
+    /**
+     * Should reject a null metadata key.
+     */
+    @Test
+    void shouldRejectNullMetadataKey() {
+        EnrichInformation information =
+                new EnrichInformation("Database", "DB-001", "Connection failed", ErrorLevel.ERROR);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> information.addMetadata(null, "localhost")
+        );
+    }
+
+    /**
+     * Should reject a null metadata value.
+     */
+    @Test
+    void shouldRejectNullMetadataValue() {
+        EnrichInformation information =
+                new EnrichInformation("Database", "DB-001", "Connection failed", ErrorLevel.ERROR);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> information.addMetadata("host", null)
+        );
+    }
+
+    /**
+     * Should normalize a blank metadata key to {@code BLANK}.
+     */
+    @Test
+    void shouldNormalizeBlankMetadataKey() {
+        EnrichInformation information =
+                new EnrichInformation("Database", "DB-001", "Connection failed", ErrorLevel.ERROR);
+
+        information.addMetadata("   ", "localhost");
+
+        assertEquals("localhost", information.getMetadata().get("BLANK"));
+    }
+
+    /**
+     * Should normalize a blank metadata value to {@code BLANK}.
+     */
+    @Test
+    void shouldNormalizeBlankMetadataValue() {
+        EnrichInformation information =
+                new EnrichInformation("Database", "DB-001", "Connection failed", ErrorLevel.ERROR);
+
+        information.addMetadata("host", "   ");
+
+        assertEquals("BLANK", information.getMetadata().get("host"));
+    }
+
+    /**
+     * Should return a metadata snapshot that does not change after later mutations.
+     */
+    @Test
+    void shouldReturnMetadataSnapshot() {
+        EnrichInformation information =
+                new EnrichInformation("Database", "DB-001", "Connection failed", ErrorLevel.ERROR);
+
+        information.addMetadata("host", "localhost");
+
+        Map<String, String> snapshot = information.getMetadata();
+
+        information.addMetadata("port", "5432");
+
+        assertEquals(1, snapshot.size());
+        assertEquals("localhost", snapshot.get("host"));
+        assertFalse(snapshot.containsKey("port"));
     }
 }
